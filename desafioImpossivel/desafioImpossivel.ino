@@ -59,6 +59,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
         Serial.print("LIGOU: ");
         Serial.println(estaLigado);
         client.publish(topico_id, "0", true);
+        client.publish(topico_nomes, "", true);
       } 
       else if (msg == "0") {                      
         // AGUARDE SER 1                              
@@ -78,7 +79,6 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
       souEu = 1;
       Serial.println("SOU EU!");
-      client.publish(topico_nomes, "", true);
     }
   }
 
