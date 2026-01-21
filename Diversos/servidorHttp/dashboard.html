@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>dashboard de vilão</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/canvas-gauges@2.1.7/gauge.min.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #1a1a1a;
+            --card-color: #2d2d2d;
+            --text-color: #e0e0e0;
+            --accent-color: #00d4ff;
+            --danger-color: #ff4d4d;
+            --success-color: #00cc66;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            max-width: 900px;
+            width: 95%;
+        }
+
+        .card {
+            background-color: var(--card-color);
+            padding: 2rem;
+            border-radius: 15px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            transition: transform 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .card:hover { transform: translateY(-5px); }
+
+        h2 { margin-top: 0; font-size: 1.2rem; color: #888; margin-bottom: 20px;}
+
+        .btn-controle {
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            width: 100%;
+            max-width: 250px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            outline: none;
+        }
+
+        .btn-off {
+            background-color: transparent;
+            border: 2px solid var(--danger-color);
+            color: var(--danger-color);
+        }
+
+        .btn-on {
+            background-color: var(--success-color);
+            color: white;
+            box-shadow: 0 0 15px var(--success-color);
+            border: 2px solid var(--success-color);
+        }
+
+        .btn-controle:active { transform: scale(0.95); }
+
+        .status-box { margin-top: 20px; font-size: 0.9rem; color: #666; }
+        .status-dot {
+            height: 10px; width: 10px;
+            background-color: #555;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+        .online { background-color: var(--success-color); box-shadow: 0 0 5px var(--success-color); }
+        .offline { background-color: var(--danger-color); }
+
+        footer { grid-column: 1 / -1; text-align: center; margin-top: 20px; font-size: 0.8rem; color: #555;}
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        
+        <div class="card">
+            <h2>SENSOR DE TEMPERATURA</h2>
+            
+            <canvas id="gauge-temp"
+                data-type="radial-gauge"
+                data-width="250" 
+                data-height="250"
+                data-units="°C"
+                data-title="Temp"
+                data-min-value="0"
+                data-max-value="100"
+                data-major-ticks="0,10,20,30,40,50,60,70,80,90,100"
+                data-minor-ticks="2"
+                data-stroke-ticks="true"
+                data-highlights='[
+                    {"from": 0, "to": 40, "color": "rgba(0, 204, 102, .3)"},
+                    {"from": 40, "to": 70, "color": "rgba(255, 255, 0, .3)"},
+                    {"from": 70, "to": 100, "color": "rgba(255, 77, 77, .3)"}
+                ]'
+                data-color-plate="#2d2d2d"
+                data-color-major-ticks="#f5f5f5"
+                data-color-minor-ticks="#ddd"
+                data-color-title="#fff"
+                data-color-units="#ccc"
+                data-color-numbers="#eee"
+                data-color-needle="rgba(240, 128, 128, 1)"
+                data-color-needle-end="rgba(255, 160, 122, .9)"
+                data-value="0"
+                data-animation-rule="linear"
+                data-animation-duration="500"
+            ></canvas>
+
+            <div id="statusConexao" class="status-box">
+                <span class="status-dot"></span> Aguardando...
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>CONTROLE DO MOTOR</h2>
+            
+            <button id="btnMotor" class="btn-controle btn-off" onclick="toggleMotor()">
+                DESLIGADO
+            </button>
+            
+            <p style="margin-top: 20px; color: #888; font-size: 0.9rem;">
+                Estado Sincronizado com a ESP32
+            </p>
+        </div>
+
+        <footer>
+            Dashboard bigode das guria...
+        </footer>
+    </div>
+
+    <script>
+        /*                                                                                                                                                                                                                                              
+                             @ ++++++++++++++++++++++++++++ @                                          
+                             @ ............................  #                                         
+                            @ .............................. @                                         
+                            @ ..............................  @                                                                              
+                           @ .................................. :#                                     
+                          @ ....................................  @                                                                     
+                        @  .........................................  *                                
+                        % ............................................  @                              
+                       @ ..............................................  %                             
+                       @-................................................ ::                           
+                       @ .................................................  @                                                                    
+                       @:::.....+@+::.....=#-:.................. @* .:.......  %                       
+                       @:::.....+@+::.....*@+:......-*::........ @ @: ::....  @                        
+                       @:::.....+@+::.....*@+:......*@=:........ @   %.     .@                         
+                       @+::.....+@.::.....*@+:......*@=:........ @     :@@@                                                                
+                         @-  .  -@ ::.....*@+:......*@=:........ @                                     
+                            @@@  @.::.....*@+:......*@=:........ @                                     
+                                 +*.:.....*@+:......*@=:........ @                                     
+                                  **  ... :@+:......*@=:........ @                                     
+                                    %+.  =@@-:......*@.:........ @                                     
+                                           @*.......*@ :........ @                                     
+                                            @+ .... =@ :........ @                                     
+                                              @=: .+@@ :........ @                                     
+                                                     @ :........ @                                     
+                                                     @ :........ @                                                                                                          
+                                                      *........@                                                                            
+                                                        * ...*                                                                                                                                                                                                                                 
+        */
+        const IP_ESP = "http://192.168.88.232"; // <<<<<<<<<<-- TROQUE PELO SEU IP!!
+        
+        let estadoMotorLocal = false; 
+
+        //função de Polling (Busca dados a cada 1s - to indo ver se o entregador já chegou com a encomenda)
+        async function atualizarDados() {
+            try {
+
+                //requisição GET para ler sensores
+                const response = await fetch(IP_ESP + "/api/status");
+                if(!response.ok) throw new Error("Falha HTTP");
+                
+                const data = await response.json();
+
+                //atualiza o gauge (aquele acelerômetro)
+                document.getElementById("gauge-temp").setAttribute("data-value",data.temp );
+
+                //verifica o estado do rele (variavel motorLigado) para sempre estar correto, até em caso de desconexão
+                //converte para boolean (caso venha "true" string ou 1 int)
+                estadoMotorLocal = (String(data.rele) === "true" || data.rele === 1 || data.rele === true);
+                atualizarVisualBotao();
+
+                //status Online
+                setOnline(true);
+
+            } catch (error) {
+                console.error("Erro de conexão:", error);
+                setOnline(false);
+            }
+        }
+
+        //função de Controle (Envia comando)
+        async function toggleMotor() {
+            // Inverte o estado atual
+            const novoEstado = !estadoMotorLocal ? "on" : "off";
+            
+            try {
+                //requisição para mudar o estado
+                await fetch(`${IP_ESP}/api/control?state=${novoEstado}`);
+                
+                //força atualização imediata para não esperar 1 segundo pelo feedback
+                setTimeout(atualizarDados, 100);
+
+            } catch (error) {
+                alert("erro ao enviar comando. Verifique a conexão.");
+            }
+        }
+
+        //funções visuais
+        function atualizarVisualBotao() {
+            const btn = document.getElementById("btnMotor");
+            if (estadoMotorLocal) {
+                btn.innerText = "LIGADO";
+                btn.className = "btn-controle btn-on";
+            } else {
+                btn.innerText = "DESLIGADO";
+                btn.className = "btn-controle btn-off";
+            }
+        }
+
+        function setOnline(isOnline) {
+            const div = document.getElementById("statusConexao");
+            const dot = div.querySelector(".status-dot");
+            if(isOnline) {
+                dot.className = "status-dot online";
+                div.innerHTML = '<span class="status-dot online"></span> Sistema Online';
+            } else {
+                dot.className = "status-dot offline";
+                div.innerHTML = '<span class="status-dot offline"></span> Desconectado';
+            }
+        }
+        setInterval(atualizarDados, 1000); // 1000ms = 1 segundo
+
+        atualizarDados();
+
+    </script>
+</body>
+</html>
