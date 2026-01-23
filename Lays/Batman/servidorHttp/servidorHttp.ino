@@ -97,7 +97,7 @@ void criaServidor(){
     
     /*
     Envia o pacote HTTP de volta:
-    - Status 200: OK (Sucesso).
+    - Status 200: OK (Sucesso).192.168.88.226
     - "application/json": Avisa o cliente para tratar como Objeto, não como HTML.
     - Payload: O texto JSON gerado acima.
     */

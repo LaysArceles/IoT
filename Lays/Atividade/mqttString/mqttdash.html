@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard MQTT - Vilão IoT</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/canvas-gauges@2.1.7/gauge.min.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js" type="text/javascript"></script>
+
+    <style>
+        /* (MANTIVE O MESMO CSS ESTILOSO SEU) */
+        :root { --bg-color: #1a1a1a; --card-color: #2d2d2d; --text-color: #e0e0e0; --accent-color: #00d4ff; --danger-color: #ff4d4d; --success-color: #00cc66; }
+        body { font-family: 'Segoe UI', sans-serif; background-color: var(--bg-color); color: var(--text-color); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .container { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; max-width: 900px; width: 95%; }
+        .card { background-color: var(--card-color); padding: 2rem; border-radius: 15px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .btn-controle { padding: 15px 30px; font-size: 1.2rem; border: none; border-radius: 50px; cursor: pointer; width: 100%; max-width: 250px; font-weight: bold; transition: all 0.3s ease; outline: none; }
+        .btn-off { background-color: transparent; border: 2px solid var(--danger-color); color: var(--danger-color); }
+        .btn-on { background-color: var(--success-color); color: white; box-shadow: 0 0 15px var(--success-color); border: 2px solid var(--success-color); }
+        .btn-controle:active { transform: scale(0.95); }
+        .status-box { margin-top: 20px; font-size: 0.9rem; color: #666; }
+        .status-dot { height: 10px; width: 10px; background-color: #555; border-radius: 50%; display: inline-block; margin-right: 5px; }
+        .online { background-color: var(--success-color); box-shadow: 0 0 5px var(--success-color); }
+        .offline { background-color: var(--danger-color); }
+        footer { grid-column: 1 / -1; text-align: center; margin-top: 20px; font-size: 0.8rem; color: #555;}
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        
+        <div class="card">
+            <h2>SENSOR DE TEMPERATURA</h2>
+            <canvas id="gauge-temp" data-type="radial-gauge" data-width="250" data-height="250" data-units="°C" data-title="Temp" data-min-value="0" data-max-value="100" data-major-ticks="0,10,20,30,40,50,60,70,80,90,100" data-minor-ticks="2" data-stroke-ticks="true" data-highlights='[ {"from": 0, "to": 40, "color": "rgba(0, 204, 102, .3)"}, {"from": 40, "to": 70, "color": "rgba(255, 255, 0, .3)"}, {"from": 70, "to": 100, "color": "rgba(255, 77, 77, .3)"} ]' data-color-plate="#2d2d2d" data-color-major-ticks="#f5f5f5" data-color-minor-ticks="#ddd" data-color-title="#fff" data-color-units="#ccc" data-color-numbers="#eee" data-color-needle="rgba(240, 128, 128, 1)" data-color-needle-end="rgba(255, 160, 122, .9)" data-value="0" data-animation-rule="linear" data-animation-duration="500"></canvas>
+
+            <div id="statusConexao" class="status-box">
+                <span class="status-dot"></span> Desconectado do Broker
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>CONTROLE REMOTO</h2>
+            <button id="btnMotor" class="btn-controle btn-off" onclick="enviarComando()">
+                DESLIGADO
+            </button>
+            <p style="margin-top: 20px; color: #888; font-size: 0.9rem;">
+                Comunicação via WebSocket (Porta 8000)
+            </p>
+        </div>
+        <div class="card">
+            <h2>ENVIAR MENSAGEM</h2>
+            
+            <input type="text" id="inputMsg" placeholder="Digite para a ESP32..." 
+                   style="width: 80%; padding: 10px; margin-bottom: 10px; border-radius: 5px; border: none;">
+            
+            <button class="btn-controle btn-on" style="font-size: 1rem; padding: 10px;" onclick="enviarTexto()">
+                ENVIAR SERIAL
+            </button>
+        </div>
+        <footer>
+            Dashboard MQTT Educacional - Bosch ETS
+        </footer>
+    </div>
+
+    <script>
+        
+        const broker = "broker.hivemq.com";
+        const porta = 8000;                                                             // IMPORTANTE: WebSocket Port (Não é 1883!)
+        const clienteId = "dashboard_web_" + Math.random().toString(16).substr(2, 8);   // ID Aleatório
+
+        const topicoComando = "bosch/ets/dta/lays/luz"; 
+        const topicoStatus = "bosch/ets/dta/lays/status";
+
+        client = new Paho.MQTT.Client(broker, porta, clienteId);
+
+        client.onConnectionLost = onConnectionLost;
+        client.onMessageArrived = onMessageArrived;
+
+        // Tenta conectar
+        console.log("Tentando conectar ao broker via WebSocket...");
+        client.connect({
+            onSuccess: onConnect,
+            onFailure: onFailure,
+            keepAliveInterval: 30
+        });
+        const topicoTexto = "bosch/ets/dta/lays/texto";
+
+        function enviarTexto() {
+
+            const input = document.getElementById("inputMsg");
+            const texto = input.value;
+
+            if (texto === "") {
+                alert("Digite alguma coisa!");
+                return;
+            }
+
+            message = new Paho.MQTT.Message(texto);
+            message.destinationName = topicoTexto;
+            
+            client.send(message);
+            console.log("Texto enviado: " + texto);
+
+            input.value = "";
+        }
+        function onConnect() {
+            console.log("conectado ao broker");
+            setOnline(true);
+            
+            client.subscribe(topicoStatus);
+        }
+        //quando cai o wifi
+        function onFailure(responseObject) {
+            console.log("Falha na conexão: " + responseObject.errorMessage);
+            setOnline(false);
+        }
+
+        function onConnectionLost(responseObject) {
+            if (responseObject.errorCode !== 0) {
+                console.log("Conexão perdida: " + responseObject.errorMessage);
+                setOnline(false);
+            }
+        }
+
+        function onMessageArrived(message) {
+            const topico = message.destinationName;
+            const payload = message.payloadString;
+
+            console.log("Chegou msg no tópico: " + topico + " | Conteúdo: " + payload);
+            
+            if (topico === topicoStatus) {
+  
+                try {
+                    const dados = JSON.parse(payload);
+                    if(dados.temp) {
+                        document.getElementById("gauge-temp").setAttribute("data-value", dados.temp);
+                    }
+                    if(dados.led) {
+                        atualizarBotao(dados.led === "LIGADO");
+                    }
+
+                } catch(e) {
+                    if (payload === "LIGADO" || payload === "ONLINE") {
+                        atualizarBotao(true);
+                    } else if (payload === "DESLIGADO" || payload === "OFFLINE") {
+                        atualizarBotao(false);
+                    } else if (!isNaN(payload)) {
+                        document.getElementById("gauge-temp").setAttribute("data-value", payload);
+                    }
+                }
+            }
+        }
+
+        function enviarComando() {
+            const btn = document.getElementById("btnMotor");
+            const estadoAtual = btn.innerText === "LIGADO";
+            
+            const payload = estadoAtual ? "DESLIGA" : "LIGA";
+
+            message = new Paho.MQTT.Message(payload);
+            message.destinationName = topicoComando;
+
+            client.send(message);
+            console.log("Comando enviado: " + payload);
+        }
+
+        function atualizarBotao(ligado) {
+            const btn = document.getElementById("btnMotor");
+            if (ligado) {
+                btn.innerText = "LIGADO";
+                btn.className = "btn-controle btn-on";
+            } else {
+                btn.innerText = "DESLIGADO";
+                btn.className = "btn-controle btn-off";
+            }
+        }
+
+        function setOnline(isOnline) {
+            const div = document.getElementById("statusConexao");
+            const dot = div.querySelector(".status-dot");
+            if(isOnline) {
+                dot.className = "status-dot online";
+                div.innerHTML = '<span class="status-dot online"></span> Conectado ao Broker';
+            } else {
+                dot.className = "status-dot offline";
+                div.innerHTML = '<span class="status-dot offline"></span> Desconectado';
+            }
+        }
+    </script>
+</body>
+</html>
