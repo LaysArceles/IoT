@@ -69,7 +69,7 @@ void funHorario(){
   timerAlarm(timerH,1000000,true,0);
   if(click == 2 ){
    posicaoA = posicaoH;
-   digitalWrite(leds[posicaoH], LOW);
+   //digitalWrite(leds[posicaoH], LOW);
     return;
   }
   if (aux1 == 1){
@@ -86,7 +86,7 @@ void funAntihorario(){
  
   if(click == 2){
     posicaoH = posicaoA;
-    digitalWrite(leds[posicaoH-1], LOW);
+   // digitalWrite(leds[posicaoH-1], LOW);
     return;
   }
   if (aux2 == 1){
@@ -99,7 +99,8 @@ void funAntihorario(){
 }
 
 void loop() {
-
+//funHorario();
+// funAntihorario();
   switch (click){
     case 0:
       funHorario();
