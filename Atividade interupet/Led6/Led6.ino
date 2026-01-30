@@ -1,104 +1,118 @@
-int leds[] = {13,14,15,18,17,16};
-int botao = 32;
+int leds[] = {23,21,19,5,18,15};
+int botao = 4;
 
 hw_timer_t *timer = NULL;
-volatile int click = 0;
-
+hw_timer_t *timerH = NULL;
+hw_timer_t *timerA = NULL;
 int flag = 0;
 int Tempo = 0;
-int count = 0;
-int countempo = 0; 
-int aux = 0;
-int posisao = 0;
-int Anitposisao = 0;
-int aux2 = 0; 
+volatile int click = 0;
 
-void IRAM_ATTR timerPiscar(){
-  digitalWrite(leds[posisao] ,HIGH);
-  digitalWrite(leds[posisao - 1 ] ,!digitalRead(leds[posisao]));  
-  aux = 1;
+// tempo dos piscas piscas
+int posicaoH = 0;
+int aux1 = 0;
+int posicaoA = 6;
+int aux2 = 0;
+
+void IRAM_ATTR blickHorario(){
+  digitalWrite(leds[posicaoH],HIGH);
+  digitalWrite(leds[posicaoH - 1], LOW);
+  aux1 = 1;
 }
-void IRAM_ATTR antiorarioPiscar(){
-  digitalWrite(leds[Anitposisao] ,HIGH);
-  digitalWrite(leds[Anitposisao - 1 ] ,!digitalRead(leds[Anitposisao]));  
+void IRAM_ATTR blickAntihorario(){
+  digitalWrite(leds[posicaoA ], LOW);
+  digitalWrite(leds[posicaoA -1 ], HIGH);
   aux2 = 1;
 }
-void IRAM_ATTR onTimer(){
-  if(flag == 1){
-    if(Tempo > 0 ){
+
+void IRAM_ATTR onTime(){
+  if (flag == 1){
+    if(Tempo > 0){
       Tempo --;
-    }else{
+    }
+    else{
       flag = 0;
-      if (digitalRead(botao)){
-         click ++;
-         Serial.println(click);
-        
+      if(digitalRead(botao)){
+        click ++;
+        Serial.println(click);
       }
     }
   }
 }
-void IRAM_ATTR funcaoTempo(){
-  if (flag != 1){
+
+void IRAM_ATTR funcaoCount(){
+  if(flag != 1){
     flag = 1;
     Tempo = 200;
   }
 }
-
 void setup() {
-  for (int i = 0; i < 6; i++){
-    pinMode(leds[i] , OUTPUT);
+  Serial.begin(9600);
+  pinMode(botao, INPUT_PULLUP);
+  for (int i = 0; i < 6 ; i++){
+    pinMode(leds[i], OUTPUT);
   }
 
-  pinMode(botao,INPUT_PULLUP);
-  Serial.begin(115200);
-  attachInterrupt(digitalPinToInterrupt(botao),funcaoTempo,FALLING);
-
+  attachInterrupt( digitalPinToInterrupt(botao),funcaoCount,FALLING);
   timer = timerBegin(1000000);
-  timerAttachInterrupt(timer, &onTimer);
+  timerA = timerBegin(1000000);
+  timerH = timerBegin(1000000);
+
+  timerAttachInterrupt(timer,&onTime);
   timerAlarm(timer,1000,true,0);
-  
+
+
 }
-void horario(){
-
-  timerAttachInterrupt(timer, &timerPiscar);
-  timerAlarm(timer,500000,true,0);
-  timer = timerBegin(1000000);
-  if (aux == 1){
-    posisao ++;
-    if(posisao > 6){
-      posisao = 0;
-      digitalWrite(leds[5] ,digitalRead(leds[posisao]));
-    }
-    aux = 0;
+void funHorario(){
+ 
+  timerAttachInterrupt(timerH,&blickHorario);
+  timerAlarm(timerH,1000000,true,0);
+  if(click == 2 ){
+   posicaoA = posicaoH;
+   digitalWrite(leds[posicaoH], LOW);
+    return;
   }
-  
+  if (aux1 == 1){
+    posicaoH ++;
+      if (posicaoH > 6 ){
+        posicaoH = 0;
+      }
+    aux1 = 0;
+  }
 }
-void Antihorario(){
-  timerAttachInterrupt(timer, &timerPiscar);
-  timerAlarm(timer,500000,true,0);
-  timer = timerBegin(1000000);
-  if (aux == 1){
-    Anitposisao ++;
-    if(Anitposisao > 6){
-      Anitposisao = 0;
-      digitalWrite(leds[5] ,digitalRead(leds[Anitposisao]));
-    }
-    aux = 0;
+void funAntihorario(){
+  timerAttachInterrupt(timerA,&blickAntihorario);
+  timerAlarm(timerA,1000000,true,0);
+ 
+  if(click == 2){
+    posicaoH = posicaoA;
+    digitalWrite(leds[posicaoH-1], LOW);
+    return;
   }
-  // for (int n = 6; n > 0; n--){
-
-  //   digitalWrite(leds[count] ,HIGH);
-  //   digitalWrite(leds[count] ,LOW);
-  //   count --;
-  //   if (count <= 0){
-  //     count = 6; 
-  //   }
-  // }
-
+  if (aux2 == 1){
+    posicaoA --;
+      if (posicaoA <  0 ){
+        posicaoA = 6;
+      }
+    aux2 = 0;
+  }
 }
 
 void loop() {
 
-  horario();
-  
+  switch (click){
+    case 0:
+      funHorario();
+    case 1 :
+      funAntihorario();
+      break;
+    case 2 :
+      funHorario();
+      click = 0;
+      break;
+    default:
+      break;
+  }
+
 }
+
