@@ -3,7 +3,9 @@
   <GVL Name="GVL" Id="{9a7287ea-6333-42eb-8a0e-d13a9195fde7}">
     <Declaration><![CDATA[{attribute 'qualified_only'}
 VAR_GLOBAL
-	A : INT := 0;
+	status : INT := 0;
+	posicao : INT :=0;
+	garra : INT :=0;
 END_VAR]]></Declaration>
   </GVL>
 </TcPlcObject>

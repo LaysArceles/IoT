@@ -1,5 +1,5 @@
 import pyads as ps
-from ctypes import sizeof
+
 amse = "10.234.195.54.1.1"
 porta = 851
 ip = "10.234.197.74"
