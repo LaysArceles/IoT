@@ -1,78 +1,86 @@
 import pyads as ps
-import paho.mqtt.client as paho
-#from paho import  mqtt
 import paho.mqtt.client as mqtt
+import socks
 
-# TwinkCat e CLP Config
-amse = "10.234.195.54.1.1"
-porta = 851
-ip = "10.234.197.74"
+ams = "10.234.195.79.1.1"
+port = 851
+ip = "10.234.197.79"
 
-# Configurações do broker
-broker = "localhost"      # ou IP do broker
-port = 1883
+broker = "mqtt-dashboard.com"
+mqttport = 8000
 
-# Tópicos
-topicEsp = "dta/esp"
 topicEsteira = "dta/esteira"
-topicLDR = "dta/LDR"
+topicPosition = "dta/robo"
+topicTemp = "dta/temp"
+topicInfra = "dta/infra"
 
+# proxy_host = "127.0.0.1"   #<<---------rb proxy
+proxy_host = "10.224.200.26"   #<<---------rb proxy
+proxy_port = 8080
 
-# Criar cliente
-client = mqtt.Client()
+client_id = "clientId-9k3k2mhRx7"
 
-# Conectar ao broker
-client.connect(broker, port, 60)
+client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id)
 
-# CODIGO PRINCIPAL
-plc = ps.Connection(amse, porta)
+client.proxy_set(
+    proxy_type=socks.HTTP, 
+    proxy_addr=proxy_host, 
+    proxy_port=proxy_port,
+    proxy_username="disrct",
+    proxy_password="etsbosch20252"
+)
+
+client_connected = False
+while(not client_connected):
+    try:
+        client.connect(broker, mqttport)
+        print("conetado")
+        client_connected = True
+        
+        
+        position = client.subscribe("/dta/aaws")
+        print(position)
+        
+        
+    except Exception as e:
+        print(f"sem conexão: {e}")
+        i = 0
+        while (i < 9999999):
+            i+=1
+
+plc = ps.Connection(ams, port)
 plc.open()
 
-ledStatus = 0
-ledEsteira = 0
-ledLDR = 1
+allConnected = 0
 
-esteira = 0
-temp = 0
-
-try:
-    
-    
-    
-    
-    light = plc.read_by_name("GVL.luz", ps.PLCTYPE_INT)
-    
-    if(light):
-        print("A luz está ligada")
-        esteira = 1
-        client.publish(topicEsteira, "1")
-    
-    plc.write_by_name("GVL.esteira", esteira, ps.PLCTYPE_INT)
-    
-    
+while True:
+    print("----------------")
+    i = 0
+    while (i < 9999999):
+        i+=1
+    try:
+        position = client.subscribe(topicPosition)
+        plc.write_by_name("GVL.position", position[0], ps.PLCTYPE_INT)
+        print(f"Position: {position[0]}")
+        print(f"Position: {position}")
         
-except Exception as e:
-    print(f"Ocorreu um erro genérico: {e}")
-    
-    
-# Encerrar conexão MQTT
-client.disconnect()
-
-# while True:
-
-#     status = plc.read_by_name("GVL.status", ps.PLCTYPE_INT)
-    
-#     plc.write_by_name("GVL.posicao", proxima_pos, ps.PLCTYPE_INT)
-    
-
-#     garra_val = 1 if proxima_pos in [1, 3] else 0
-#     plc.write_by_name("GVL.garra", garra_val, ps.PLCTYPE_INT)
-    
-#     print(f"Enviado: Posição {proxima_pos} (Passo {n})")
-    
-#     n += 1
-#     time.sleep(2.0) 
-
-#     if n == 8 :
-#         break
-
+        infra = client.subscribe(topicInfra)
+        plc.write_by_name("GVL.infra", infra[0], ps.PLCTYPE_INT)
+        print(f"Infra: {infra[0]}", end="")
+        print(f"Infra: {infra}")
+        
+        temp = client.subscribe(topicTemp)[0]
+        plc.write_by_name("GVL.temp", temp, ps.PLCTYPE_INT)
+        print(f"Temp: {temp}")
+        
+        if (temp < 35):
+            client.publish(topicEsteira, "1")
+            plc.write_by_name("GVL.esteira", 1, ps.PLCTYPE_INT)
+        else:
+            client.publish(topicEsteira, "0")
+            plc.write_by_name("GVL.esteira", 0, ps.PLCTYPE_INT)
+            
+    except Exception as e:
+        print(f"Ocorreu um erro genérico: {e}")
+    finally:
+        client.disconnect()
