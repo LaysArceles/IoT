@@ -33,6 +33,7 @@ client = mqtt.Client(
 temperatura = 0
 infra = 0
 position = 0
+esteira = 0
 
 def on_connect(client, userdata, flags, reason_code, properties=None):
     print("Conectado")
@@ -56,12 +57,35 @@ def on_message(client, userdata, msg):
             print("Payload inválido, não é número.")
             return
         temperatura = valor
+        verification(temperatura,infra)
 
     elif msg.topic == TOPIC_INFRA:
         infra = valor
+        verification(temperatura,infra)
 
     elif msg.topic == TOPIC_POSITION:
         position = valor
+        
+def ligarRobo():
+    print("Ligando Robo")
+        
+def verification(temperatura,infra):
+    
+    # Se a esteira estiver ligada e o objeto no fim, liga robo.
+    if (esteira == 0 and infra == "OBJETO_FIM"):
+        ligarRobo()
+    
+    # Liga/Desliga a Esteira 
+    if (temperatura < 35 and infra == "OBJETO_INICIO"):
+        if (esteira == 0):
+            to_publish(TOPIC_ESTEIRA, "LIGADA")
+            esteira = 1
+            print("Ligando Esteira!")
+    else:
+        if (esteira == 1):
+            to_publish(TOPIC_ESTEIRA, "DESLIGADA")
+            esteira = 0
+            print("Desligando Esteira!")
 
 def to_publish(topico, payload): #não testei muito bem essa função ainda
     client.publish(topico, payload)
@@ -83,7 +107,13 @@ plc.open()
 allConnected = 0
 
 while True:
+    
+    print("")
     print("----------------")
+    print(f"Infra: {infra}")
+    print(f"Temp: {temperatura}")
+    print("----------------")
+    
     try:
         plc.write_by_name("GVL.position", position, ps.PLCTYPE_INT)
         print(f"Position: {position}")
