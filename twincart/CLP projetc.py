@@ -1,54 +1,59 @@
 import pyads as ps
 import paho.mqtt.client as mqtt
-import socks
+import socket, socks
 
 ams = "10.234.195.79.1.1"
-port = 851
+portClp = 851
 ip = "10.234.197.79"
-
-broker = "mqtt-dashboard.com"
-mqttport = 8000
 
 topicEsteira = "dta/esteira"
 topicPosition = "dta/robo"
 topicTemp = "dta/temp"
 topicInfra = "dta/infra"
 
-# proxy_host = "127.0.0.1"   #<<---------rb proxy
-proxy_host = "10.224.200.26"   #<<---------rb proxy
-proxy_port = 8080
+#tem que ligar o rb local proxy manager 
+PROXY_HOST = "127.0.0.1"    #<<<<<-------------
+PROXY_PORT = 3128           #<<<<<-------------
 
-client_id = "clientId-9k3k2mhRx7"
+BROKER = "broker.hivemq.com"
+PORT = 8000
+WS_PATH = "/mqtt"
 
-client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, client_id)
+TOPICO = "dta/robo"
 
-client.proxy_set(
-    proxy_type=socks.HTTP, 
-    proxy_addr=proxy_host, 
-    proxy_port=proxy_port,
-    proxy_username="disrct",
-    proxy_password="etsbosch20252"
+socks.setdefaultproxy(socks.HTTP, PROXY_HOST, PROXY_PORT)
+socket.socket = socks.socksocket
+
+client = mqtt.Client(
+    callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
+    client_id="py_sub",
+    transport="websockets",
 )
 
-client_connected = False
-while(not client_connected):
-    try:
-        client.connect(broker, mqttport)
-        print("conetado")
-        client_connected = True
-        
-        
-        position = client.subscribe("/dta/aaws")
-        print(position)
-        
-        
-    except Exception as e:
-        print(f"sem conexão: {e}")
-        i = 0
-        while (i < 9999999):
-            i+=1
+def on_connect(client, userdata, flags, reason_code, properties=None):
+    print("connect:", reason_code)
+    if reason_code == 0:
+        client.subscribe(TOPICO)
+        print("sub:", TOPICO)
 
-plc = ps.Connection(ams, port)
+def on_message(client, userdata, msg):
+    print(f"{msg.topic} -> {msg.payload.decode(errors='ignore')}")
+
+def to_publish(topico, payload): #não testei muito bem essa função ainda
+    client.publish(TOPICO, payload)
+    print("enviei info: {}".format(payload))
+    # print(f"enviei info: {payload}")
+    
+client.ws_set_options(path=WS_PATH)
+client.on_connect = on_connect
+client.on_message = on_message
+
+client.connect(BROKER, PORT, 20)
+client.loop_forever()
+to_publish(TOPICO, "testando") #verificar se cria uma lógica bloqueante ainda funcionará
+
+
+plc = ps.Connection(ams, portClp)
 plc.open()
 
 allConnected = 0
